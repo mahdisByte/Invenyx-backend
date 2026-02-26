@@ -1,0 +1,20 @@
+
+
+# Build folders
+bin/
+obj/
+
+
+# User files
+*.user
+*.suo
+
+# Logs
+*.log
+
+# Environment configs
+appsettings.Development.json
+
+.vs/
+**/.vs/
+
