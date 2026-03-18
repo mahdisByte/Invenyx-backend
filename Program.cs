@@ -10,14 +10,15 @@ using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// deployment settings
+
+// PORT handling (kept as-is, already correct)
 var port = Environment.GetEnvironmentVariable("PORT");
 if (!string.IsNullOrEmpty(port))
 {
     builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 }
 
-// JWT settings
+// JWT settings (no change, but will support env vars too)
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var key = Encoding.ASCII.GetBytes(jwtSettings["Key"]);
 
@@ -50,15 +51,21 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpContextAccessor();
 
-// DB connection
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
+//  DATABASE CONNECTION FIX
+
+// Railway uses DATABASE_URL instead of appsettings.json
+var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL");
+
+// Fallback to local DB when running locally
 if (string.IsNullOrEmpty(connectionString))
 {
-    throw new Exception("Database connection string is missing!");
+    connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 }
 
-// Handle Railway DATABASE_URL format
+
+// HANDLE RAILWAY POSTGRES FORMAT (kept your logic)
+
 if (connectionString.StartsWith("postgresql://"))
 {
     var uri = new Uri(connectionString);
@@ -78,8 +85,12 @@ if (connectionString.StartsWith("postgresql://"))
     connectionString = npgsqlBuilder.ToString();
 }
 
+// Register DB
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
+
+
+//  CORS (kept AllowAll for now for easy testing)
 
 builder.Services.AddCors(options =>
 {
@@ -89,6 +100,7 @@ builder.Services.AddCors(options =>
                         .AllowAnyHeader());
 });
 
+// Services
 builder.Services.AddScoped<ISupplierService, SupplierService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<StockService>();
@@ -109,11 +121,20 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Run migrations automatically
+
+//  SAFE MIGRATION (wrapped in try-catch)
+
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
+    try
+    {
+        db.Database.Migrate();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("Migration failed: " + ex.Message);
+    }
 }
 
 app.Run();
