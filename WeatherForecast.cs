@@ -11,3 +11,7 @@ namespace InventoryManagementAPI
         public string? Summary { get; set; }
     }
 }
+
+
+/*builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))); */
