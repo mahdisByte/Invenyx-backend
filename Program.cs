@@ -17,6 +17,9 @@ if (!string.IsNullOrEmpty(port))
 {
     builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 }
+
+
+
 // JWT settings
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var key = Encoding.ASCII.GetBytes(jwtSettings["Key"]);
@@ -82,5 +85,12 @@ app.UseAuthentication();   // must come BEFORE authorization
 app.UseAuthorization();
 
 app.MapControllers();
+
+//databse deployment
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+}
 
 app.Run();
