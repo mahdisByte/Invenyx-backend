@@ -41,6 +41,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -59,6 +60,10 @@ builder.Services.AddScoped<StockService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<AuditService>();
+builder.Services.AddScoped<StockService>();
+
+
 var app = builder.Build();
 
 app.UseCors("AllowAll");

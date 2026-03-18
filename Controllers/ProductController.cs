@@ -56,5 +56,12 @@ namespace InventoryManagementAPI.Controllers
             if (!result) return NotFound();
             return Ok();
         }
+
+        [HttpGet("search")]
+        public async Task<IActionResult> Search(string? search, int? categoryId, string? sort)
+        {
+            var result = await _service.SearchAsync(search, categoryId, sort);
+            return Ok(result);
+        }
     }
 }

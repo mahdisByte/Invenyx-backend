@@ -9,5 +9,7 @@ namespace InventoryManagementAPI.Services.Interfaces
         Task<ProductResponseDto?> CreateAsync(CreateProductDto dto);
         Task<bool> UpdateAsync(int id, UpdateProductDto dto);
         Task<bool> DeleteAsync(int id);
+        Task<IEnumerable<ProductResponseDto>> SearchAsync(string? search, int? categoryId, string? sort);
+
     }
 }

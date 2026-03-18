@@ -16,6 +16,7 @@ namespace InventoryManagementAPI.Data
         public DbSet<StockIn> StockIns { get; set; }
         public DbSet<StockOut> StockOuts { get; set; }
 
+        public DbSet<AuditLog> AuditLogs { get; set; }
 
     }
 }

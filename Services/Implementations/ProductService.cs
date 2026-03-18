@@ -104,5 +104,38 @@ namespace InventoryManagementAPI.Services.Implementations
             await _context.SaveChangesAsync();
             return true;
         }
+        public async Task<IEnumerable<ProductResponseDto>> SearchAsync(string? search, int? categoryId, string? sort)
+        {
+            var query = _context.Products
+                .Include(p => p.Category)
+                .Include(p => p.Supplier)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(search))
+                query = query.Where(p => p.Name.ToLower().Contains(search.ToLower()));
+
+            if (categoryId.HasValue)
+                query = query.Where(p => p.CategoryId == categoryId);
+
+            query = sort switch
+            {
+                "price_asc" => query.OrderBy(p => p.Price),
+                "price_desc" => query.OrderByDescending(p => p.Price),
+                "qty_asc" => query.OrderBy(p => p.Quantity),
+                "qty_desc" => query.OrderByDescending(p => p.Quantity),
+                _ => query.OrderBy(p => p.Name)
+            };
+
+            return await query.Select(p => new ProductResponseDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Description = p.Description,
+                Price = p.Price,
+                Quantity = p.Quantity,
+                CategoryName = p.Category!.Name,
+                SupplierName = p.Supplier!.Name
+            }).ToListAsync();
+        }
     }
 }
