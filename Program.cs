@@ -75,6 +75,9 @@ var app = builder.Build();
 
 app.UseCors("AllowAll");
 
+app.UseSwagger();
+app.UseSwaggerUI();
+
 app.UseAuthentication();   // must come BEFORE authorization
 app.UseAuthorization();
 
