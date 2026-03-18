@@ -11,16 +11,27 @@ using Npgsql;
 var builder = WebApplication.CreateBuilder(args);
 
 
-// PORT handling (kept as-is, already correct)
+// ======================
+// PORT (Railway)
+// ======================
 var port = Environment.GetEnvironmentVariable("PORT");
 if (!string.IsNullOrEmpty(port))
 {
     builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 }
 
-// JWT settings (no change, but will support env vars too)
+
+// ======================
+// JWT CONFIG
+// ======================
 var jwtSettings = builder.Configuration.GetSection("Jwt");
-var key = Encoding.ASCII.GetBytes(jwtSettings["Key"]);
+
+// ✅ CHANGE: allow env vars fallback (important for deployment)
+var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY") ?? jwtSettings["Key"];
+var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? jwtSettings["Issuer"];
+var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? jwtSettings["Audience"];
+
+var key = Encoding.ASCII.GetBytes(jwtKey);
 
 // Authentication
 builder.Services.AddAuthentication(options =>
@@ -38,8 +49,8 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtSettings["Issuer"],
-        ValidAudience = jwtSettings["Audience"],
+        ValidIssuer = jwtIssuer,
+        ValidAudience = jwtAudience,
         IssuerSigningKey = new SymmetricSecurityKey(key)
     };
 });
@@ -52,21 +63,21 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddHttpContextAccessor();
 
 
-//  DATABASE CONNECTION FIX
+// ======================
+// DATABASE CONNECTION
+// ======================
 
-// Railway uses DATABASE_URL instead of appsettings.json
+// ✅ CHANGE: Use DATABASE_URL first (Railway)
 var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL");
 
-// Fallback to local DB when running locally
+// fallback (local)
 if (string.IsNullOrEmpty(connectionString))
 {
     connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 }
 
-
-// HANDLE RAILWAY POSTGRES FORMAT (kept your logic)
-
-if (connectionString.StartsWith("postgresql://"))
+// ✅ CHANGE: Convert Railway URL → Npgsql format
+if (!string.IsNullOrEmpty(connectionString) && connectionString.StartsWith("postgresql://"))
 {
     var uri = new Uri(connectionString);
     var userInfo = uri.UserInfo.Split(':');
@@ -90,8 +101,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
 
-//  CORS (kept AllowAll for now for easy testing)
-
+// ======================
+// CORS
+// ======================
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll",
@@ -100,7 +112,10 @@ builder.Services.AddCors(options =>
                         .AllowAnyHeader());
 });
 
-// Services
+
+// ======================
+// SERVICES
+// ======================
 builder.Services.AddScoped<ISupplierService, SupplierService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<StockService>();
@@ -108,6 +123,7 @@ builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<AuditService>();
+
 
 var app = builder.Build();
 
@@ -122,18 +138,33 @@ app.UseAuthorization();
 app.MapControllers();
 
 
-//  SAFE MIGRATION (wrapped in try-catch)
+// ======================
+// 🔥 CRITICAL FIX: RETRY MIGRATION
+// ======================
 
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    try
+
+    int retries = 10; // ✅ CHANGE: retry multiple times
+    while (retries > 0)
     {
-        db.Database.Migrate();
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine("Migration failed: " + ex.Message);
+        try
+        {
+            Console.WriteLine("Applying migrations...");
+            db.Database.Migrate();
+            Console.WriteLine("Migrations applied successfully!");
+            break;
+        }
+        catch (Exception ex)
+        {
+            retries--;
+
+            Console.WriteLine($"Migration failed: {ex.Message}");
+            Console.WriteLine($"Retrying... ({retries} left)");
+
+            Thread.Sleep(5000); // ✅ CHANGE: wait before retry
+        }
     }
 }
 
